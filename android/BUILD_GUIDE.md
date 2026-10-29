@@ -1,6 +1,6 @@
 # Digital Safety Android build guide
 
-This directory is a native Android WebView wrapper around the HTTPS Digital Safety dashboard. The wrapper uses package id `com.digitalsafety.app`, preserves the existing routes by loading `https://digitalsafetyv2.vercel.app/`, handles Android back navigation, blocks cleartext traffic, and shows a retry state when the dashboard cannot load. A debug APK and release AAB were compiled successfully in the review environment; runtime testing on a physical device/emulator remains required.
+This directory is a native Android WebView wrapper around the HTTPS Digital Safety dashboard. It is source code, not a tested APK. The wrapper uses package id `com.digitalsafety.app`, preserves the existing routes by loading `https://digitalsafetyv2.vercel.app/`, handles Android back navigation, blocks cleartext traffic, and shows a retry state when the dashboard cannot load.
 
 ## Build with Android Studio
 
@@ -23,7 +23,7 @@ gradle bundleRelease
 # output: app/build/outputs/bundle/release/app-release.aab
 ```
 
-A Gradle wrapper is not included in this ZIP. The verified build used Gradle 8.7 with Android SDK Platform 35. Before publishing or handing the project to another developer, run `gradle wrapper --gradle-version 8.7` and commit the generated wrapper files for reproducible builds.
+A Gradle wrapper is not included because the review environment had Java but no Android SDK, Gradle installation, or wrapper distribution. Android Studio can generate/use the wrapper after opening the project. Before publishing, run `gradle wrapper --gradle-version 8.7` and commit the generated wrapper files.
 
 ## Permissions
 
@@ -39,7 +39,7 @@ Cleartext HTTP is disabled through the manifest and `network_security_config.xml
 
 | Feature | Status in this project | Notes |
 |---|---|---|
-| Existing website routes | Implemented; native wrapper compiled | Loaded from the HTTPS Vercel dashboard; route runtime still needs device/browser testing. |
+| Existing website routes | Source implemented; native wrapper not compiled here | Loaded from the HTTPS Vercel dashboard. |
 | Branding/icon/theme | Source implemented; device rendering not tested here | Launcher vector icon and dark theme included. |
 | Back-button navigation | Implemented in Java | Goes back in WebView history, then exits at root. |
 | Offline/load error state | Implemented in Java | Main-frame errors show a retry view. No fake result is generated. |
@@ -48,18 +48,15 @@ Cleartext HTTP is disabled through the manifest and `network_security_config.xml
 | Installed-app malware scan | Unavailable | No native detection engine or maintained definitions are supplied. |
 | Exact eight-hour scan schedule | Unavailable | No WorkManager scanner is implemented; Android cannot guarantee an exact time. |
 | Native push notifications | Unavailable | Requires a deliberately configured native provider/plugin. |
-| Debug APK | Compiled and signature-verified | `app/build/outputs/apk/debug/app-debug.apk`; debug-signed and not a production release. |
-| Release AAB | Compiled and test-signed copy verified | The supplied test-signed AAB is for validation only; replace its temporary signing identity with the publisher's key before Play distribution. |
+| APK/AAB | Not tested in this environment | Build on a machine with Android SDK/Gradle and sign before distribution. |
 
 ## Updating the dashboard
 
 The APK loads the URL in `MainActivity.java`. If the production domain changes, update `DASHBOARD_URL`, rebuild, and test every route on a real device. Alternatively, keep the stable domain and deploy frontend changes normally. The APK does not bundle the React source, so offline use is limited to whatever the WebView/service worker can cache after a successful online visit.
 
-The deliverable folder contains a debug APK plus test-signed release APK/AAB copies. The release signing key was temporary and is deliberately not included. Do not publish the test-signed artifacts as the final Play Store release; generate a new publisher-controlled key and sign through your normal release process.
-
 ## Release checklist
 
-- Build debug and signed release APK/AAB. The supplied debug APK is compile/signature verified; the release AAB still needs signing and device testing before publication.
+- Build debug and signed release APK/AAB.
 - Test first launch, reload, airplane mode, permission denial, rotation, Android back, external links, all routes, long pages, and WebView storage.
 - Verify the final HTTPS certificate/domain.
 - Confirm no unneeded permissions appear in the generated merged manifest.

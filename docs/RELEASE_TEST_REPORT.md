@@ -2,7 +2,7 @@
 
 ## Scope
 
-This report covers the corrected source package produced from the supplied Digital Safety project. It distinguishes checks actually run in this environment from Android runtime checks that require an emulator or physical device.
+This report covers the corrected source package produced from the supplied Digital Safety project. It distinguishes checks that were actually run in this environment from Android checks that require an Android SDK, Gradle, emulator, or physical device.
 
 ## Tests run successfully
 
@@ -17,13 +17,8 @@ This report covers the corrected source package produced from the supplied Digit
 | Android XML well-formedness | PASS | Android manifest, theme, vector icon, and network security XML parsed with Python XML parser |
 | Extension ZIP parity | PASS | Rebuilt ZIP recursively compared to `browser-extension/` |
 | Stale project cleanup | PASS | No old `digitalsafety-orpin`, `temp_file`, or stale timeout note remains |
-| Android debug APK compilation | PASS | Gradle 8.7, Android SDK Platform 35, `assembleDebug` |
-| Android release AAB compilation | PASS | Gradle 8.7, `bundleRelease` |
-| APK package metadata | PASS | `com.digitalsafety.app`, version 1.0.0, target SDK 35, INTERNET only |
-| APK signature verification | PASS | Debug APK verified with Android `apksigner` v1/v2 signatures |
-| Release APK test-signing | PASS | Temporary local development key; v1/v2/v3 signatures verified; key intentionally not included |
-| Release AAB test-signing | PASS | Temporary local development key verified with `jarsigner`; not suitable for final Play publication |
-| Android install/runtime | NOT RUN | No emulator, `adb` target, or physical Android device is available |
+| Android compilation | NOT RUN | No Android SDK, Gradle, `adb`, emulator, or Java compiler is available in this environment |
+| Android install/runtime | NOT RUN | No emulator or physical Android device is available |
 
 ## Feature matrix
 
@@ -36,9 +31,8 @@ This report covers the corrected source package produced from the supplied Digit
 | Security articles and safety checklist | Implemented | Local progress uses browser storage. |
 | PWA/home-screen installation | Implemented in source | Web manifest, raster icons, and service worker added; install prompt not tested in a real Android browser here. |
 | Native Android wrapper | Implemented as source | Java WebView, package `com.digitalsafety.app`, HTTPS-only policy, loading/error state, retry, back navigation. |
-| Android debug APK | Compiled and signature-verified | Debug-signed artifact is installable for testing, not a production release. |
-| Android release APK | Test-signed and verified | Temporary signing identity; installable for validation but not a publisher release. |
-| Android release AAB | Compiled and test-signed | Temporary signing identity; replace with the publisher's key before Play distribution. |
+| Android APK | Not produced | Environment lacks Android SDK/Gradle/emulator. Do not claim an APK is available. |
+| Android AAB | Not produced | Same limitation. |
 | Installed-app malware scan | Unavailable | No detection engine, definitions, native package scanner, or fabricated result. |
 | Eight-hour background scan | Unavailable | No WorkManager scanner is implemented; exact execution cannot be promised. |
 | Native notifications | Unavailable | Website/browser notification flow remains optional; no native push provider configured. |
@@ -51,7 +45,7 @@ The native wrapper requests only `android.permission.INTERNET`, required to load
 
 ## Android verification required before release
 
-On a machine with a real device or emulator, install the debug APK and verify first launch, HTTPS loading, all routes, rotation, WebView state restoration, Android back behavior, airplane mode, retry after connectivity returns, external links, long pages, accessibility, and generated merged-manifest permissions. Sign the release AAB/APK with the publisher's key and test the signed artifact on a clean device before publishing.
+On a machine with Android Studio/SDK and a real device or emulator, verify first launch, HTTPS loading, all routes, rotation, WebView state restoration, Android back behavior, airplane mode, retry after connectivity returns, external links, long pages, accessibility, and generated merged-manifest permissions. Build both a debug APK and a signed release APK/AAB. Test the signed artifact on a clean device before publishing.
 
 ## Known build warning
 
