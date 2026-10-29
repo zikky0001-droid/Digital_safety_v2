@@ -13,7 +13,7 @@
 .dark { color-scheme:dark; --background:218 37% 10%; --foreground:190 24% 92%; --border:216 25% 24%; --input:216 25% 28%; --ring:169 56% 56%; --card:218 31% 14%; --card-foreground:190 24% 92%; --primary:169 56% 54%; --primary-foreground:218 37% 10%; --secondary:216 26% 20%; --secondary-foreground:190 24% 92%; --muted:216 24% 19%; --muted-foreground:204 15% 68%; --accent:35 40% 23%; --accent-foreground:39 79% 79%; --destructive:4 57% 58%; --destructive-foreground:0 0% 100%; }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
-body { margin:0; min-width:320px; background:hsl(var(--background)); color:hsl(var(--foreground)); font-family:var(--app-font-sans); -webkit-font-smoothing:antialiased; }
+body { margin:0; min-width:320px; background-color:hsl(var(--background)); background-image:linear-gradient(rgba(242,250,250,.92),rgba(242,250,250,.92)),url('/images/digital-safety-building.jpg'); background-size:cover; background-position:center top; background-attachment:fixed; color:hsl(var(--foreground)); font-family:var(--app-font-sans); -webkit-font-smoothing:antialiased; }
 button,input,textarea,select { font:inherit; }
 button,a { -webkit-tap-highlight-color:transparent; }
 a { color:inherit; }
@@ -45,8 +45,8 @@ a { color:inherit; }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; } }
 
 /* DEVZIKKY-inspired cyber visual layer: midnight surfaces, cyan/violet/pink accents. */
-body { background-image: radial-gradient(ellipse at 8% 0%, rgba(139,23,182,.12), transparent 32rem), radial-gradient(ellipse at 94% 15%, rgba(0,255,234,.07), transparent 30rem); background-attachment: fixed; }
-.dark body { background-image: radial-gradient(ellipse at 8% 0%, rgba(139,23,182,.17), transparent 35rem), radial-gradient(ellipse at 94% 15%, rgba(0,255,234,.08), transparent 32rem), linear-gradient(180deg,#08090c,#0b1018 65%,#08090c); }
+body { background-image:linear-gradient(rgba(242,250,250,.92),rgba(242,250,250,.92)),url('/images/digital-safety-building.jpg'); background-attachment:fixed; background-position:center top; background-size:cover; }
+.dark body { background-image:linear-gradient(rgba(8,9,15,.88),rgba(8,9,15,.94)),url('/images/digital-safety-building.jpg'); background-attachment:fixed; background-position:center top; background-size:cover; }
 .btn-neon { display:inline-flex; align-items:center; justify-content:center; gap:9px; border:1px solid rgba(0,255,234,.36); border-radius:999px; min-height:44px; padding:11px 17px; color:#071014; background:linear-gradient(115deg,#00ffea,#a8fff8); font-weight:800; text-decoration:none; box-shadow:0 0 24px rgba(0,255,234,.12); transition:transform .2s,box-shadow .2s; cursor:pointer; }
 .btn-neon:hover { transform:translateY(-2px); box-shadow:0 0 30px rgba(0,255,234,.23); }
 .dark .btn-primary { background:linear-gradient(115deg,#8b17b6,#ff2a6d); color:#fff; box-shadow:0 8px 28px rgba(139,23,182,.2); }
@@ -95,3 +95,14 @@ body { background-image: radial-gradient(ellipse at 8% 0%, rgba(139,23,182,.12),
 .install-choice:hover { transform:translateY(-2px); border-color:#00bcae; background:hsl(var(--secondary)); }
 .install-choice-disabled { border-style:dashed; opacity:.72; }
 @media(max-width:420px) { .install-fab { right:10px; bottom:max(10px,env(safe-area-inset-bottom)); min-height:44px; padding:0 13px; font-size:11px; } .install-modal { padding:18px; } .install-choice { min-height:118px; } }
+
+
+/* Shared owner-supplied photo references appear on every route through PageFrame. */
+.site-image-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:42px; margin-bottom:12px; }
+.site-image-pair figure { position:relative; isolation:isolate; min-width:0; min-height:210px; overflow:hidden; margin:0; border:1px solid rgba(255,255,255,.16); border-radius:22px; background:#11121d; box-shadow:0 16px 48px rgba(0,0,0,.16); }
+.site-image-pair figure::after { content:""; position:absolute; inset:0; z-index:0; background:linear-gradient(0deg,rgba(4,5,12,.92),rgba(4,5,12,.02) 78%); }
+.site-image-pair img { display:block; width:100%; height:100%; min-height:210px; max-height:300px; object-fit:cover; object-position:center 38%; }
+.site-image-pair figcaption { position:absolute; z-index:1; right:18px; bottom:16px; left:18px; display:grid; gap:7px; color:white; }
+.site-image-pair figcaption .eyebrow { color:#00ffea; }
+.site-image-pair figcaption b { font-size:clamp(16px,2vw,22px); line-height:1.15; }
+@media(max-width:600px) { .site-image-pair { grid-template-columns:1fr; gap:12px; margin-top:28px; } .site-image-pair figure,.site-image-pair img { min-height:185px; } .site-image-pair img { max-height:240px; } }
