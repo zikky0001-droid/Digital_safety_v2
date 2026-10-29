@@ -24,7 +24,7 @@ npm run build
 - `/safety-check` — personal safety checklist
 - `/device-protection` — dashboard, local URL and suspicious-message reviews, optional permission centre, origin cache controls, and occasional in-app safety notes
 - `/pros-cons` — platform features, trade-offs and honest limits
-- `/install/android` — Median APK publishing instructions
+- `/install/android` — website/PWA installation, native wrapper, and APK publishing instructions
 - `/install/desktop` — browser extension installation instructions
 - `/privacy` — privacy and incident-response guidance
 
@@ -32,12 +32,15 @@ npm run build
 
 The included source is in `browser-extension/`; a ZIP package is provided at `public/downloads/digitalsafety-browser-extension.zip`. It checks the current tab only after the visitor clicks it. Install instructions are in `browser-extension/README.md`.
 
+## Android project
+The `android/` directory contains a native Java WebView wrapper for the HTTPS dashboard. It uses package id `com.digitalsafety.app`, includes a launcher icon and splash theme, handles back navigation and load errors, and requests only `INTERNET`. It does not implement an antivirus scanner or fabricate scan results. Build it with Android Studio or a machine with Android SDK and Gradle; see `android/BUILD_GUIDE.md`.
+
 ## Important scope limit
 
 This is not yet a full antivirus engine. Browser code cannot inspect all installed apps or scan the PC's filesystem. Android installed-app scanning and reliable eight-hour background scans require a custom native component, a defensible detection source, a persistent scheduler and testing. See `docs/MEDIAN_BUILD_GUIDE.md`, `docs/NATIVE_SCANNER_SPEC.md`, and `docs/PRODUCT_SCOPE.md` before describing or publishing the product.
 
-The APK itself is not included in the repository. After creating and testing a real Median build, set the Vercel environment variable `VITE_ANDROID_APK_URL` to the official APK URL so the Android install page can show the download button.
+The supplied deliverables include a debug APK compiled and signature-verified with package id `com.digitalsafety.app`, plus test-signed release APK/AAB copies. The temporary test key is not included and must be replaced with the publisher's signing key before distribution. The artifacts have not been run on a physical device/emulator here. After device testing and production signing, upload the APK to an official HTTPS location and set the Vercel environment variable `VITE_ANDROID_APK_URL` to that URL so the Android install page can show the download button.
 
 ## Validation note
 
-The source was syntax-checked with TypeScript transpilation, and the browser extension JavaScript, service worker, and manifest JSON were checked. A full Vite production build still needs to be run after `npm install`; dependency installation could not complete in the editing environment because npm registry resolution timed out.
+The web project was validated with `npm run typecheck` and `npm run build`. The browser extension JavaScript, service worker, manifest JSON, PWA manifest, and nested extension ZIP were checked. The Android debug APK and release APK/AAB were compiled successfully; package metadata and APK/AAB signatures were verified. Device/emulator runtime testing and production signing remain required.

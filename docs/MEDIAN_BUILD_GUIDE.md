@@ -12,7 +12,7 @@ This repository is a React/Vite website with an Android WebView route plan and a
 
 ## Median App Studio checklist
 
-1. Set the website URL to `https://digitalsafety-orpin.vercel.app`.
+1. Set the website URL to `https://digitalsafetyv2.vercel.app`.
 2. Test the website in a real Android device build, not only in the browser or simulator.
 3. Do not add contacts, SMS, call-log, microphone, Wi-Fi or VPN permissions to this version.
 4. Location is optional. The website asks only after the user taps the location button. It ignores the returned coordinates and does not send or store them. If the native wrapper requires a location plugin/usage description, configure it only for this optional action.
