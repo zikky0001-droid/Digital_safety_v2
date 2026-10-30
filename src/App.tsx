@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode, type FormEvent } 
 import { Link, Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
 import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
-import { Activity, AlertCircle, ArrowRight, Bell, BookOpen, Bookmark, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, Code2, Copy, Download, ExternalLink, FileText, Gauge, Globe, Info, Laptop, Link2, LoaderCircle, LockKeyhole, MapPin, Menu, Monitor, Moon, Package, PauseCircle, PlayCircle, RefreshCw, RotateCcw, Search, Shield, ShieldAlert, ShieldCheck, Smartphone, Sun, Trash2, TriangleAlert, UserPlus, X, Zap } from 'lucide-react';
+import { Activity, AlertCircle, ArrowRight, Bell, BookOpen, Bookmark, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, Code2, Copy, Download, ExternalLink, FileText, Gauge, Globe, Info, Laptop, Link2, LoaderCircle, LockKeyhole, MapPin, Menu, Monitor, Moon, Package, PauseCircle, PlayCircle, RefreshCw, RotateCcw, Search, Shield, ShieldAlert, ShieldCheck, Smartphone, Sun, Trash2, Sparkles, TriangleAlert, UserPlus, X, Zap } from 'lucide-react';
 
 type Lesson = { title: string; category: string; difficulty: string; summary: string; works: string; signs: string[]; example: string; prevent: string[]; response: string };
 const lessons: Lesson[] = [
@@ -320,8 +320,9 @@ function BrowserGuide() {
  </section>;
 }
 type Platform = 'checking' | 'android' | 'ios' | 'windows' | 'macos' | 'linux' | 'unknown';
-type UrlReview = { level: 'low' | 'review' | 'high'; title: string; detail: string; signals: string[] };
+type UrlReview = { level: 'low' | 'review' | 'high'; title: string; detail: string; signals: string[]; reportUrl?: string };
 type MessageReview = { level: 'low' | 'review' | 'high'; title: string; signals: string[]; links: Array<{ address: string; result: UrlReview }> };
+type AiMessageResult = { reply: string; score: number | null; scoreLabel: string };
 type NativeScanResult = { status: string; scanned?: number; findings?: Array<{name:string; risk:string; detail:string}>; message?:string };
 
 declare global {
@@ -442,8 +443,12 @@ function DeviceProtection() {
   const [cacheCount,setCacheCount] = useState<number>(0);
   const [urlInput,setUrlInput] = useState('');
   const [urlResult,setUrlResult] = useState<UrlReview|null>(null);
+  const [urlBusy,setUrlBusy] = useState(false);
+  const [publicScanConsent,setPublicScanConsent] = useState(false);
   const [messageText,setMessageText] = useState('');
   const [messageResult,setMessageResult] = useState<MessageReview|null>(null);
+  const [aiMessageResult,setAiMessageResult] = useState<AiMessageResult|null>(null);
+  const [messageBusy,setMessageBusy] = useState(false);
   const [nativeScanner,setNativeScanner] = useState<{available:boolean;paused?:boolean;lastScanAt?:string|null;nextScanAt?:string|null;message?:string}>({available:false,message:'Native scanner is not connected to this web build.'});
   const [scanResult,setScanResult] = useState<NativeScanResult|null>(null);
   const [scanBusy,setScanBusy] = useState(false);
@@ -615,8 +620,43 @@ function DeviceProtection() {
     } catch { notify('The native scan failed to start. No conclusion about device safety can be made.'); }
     finally { setScanBusy(false); }
   }
-  function submitUrl(event:FormEvent<HTMLFormElement>) { event.preventDefault(); setUrlResult(reviewUrl(urlInput)); }
-  function submitMessage(event:FormEvent<HTMLFormElement>) { event.preventDefault(); setMessageResult(reviewMessageText(messageText)); }
+  async function submitUrl(event:FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const local = reviewUrl(urlInput);
+    setUrlResult(local);
+    if (local.title.includes('Enter a URL') || local.title.includes('valid website')) return;
+    if (!publicScanConsent) { notify('Please acknowledge that URLScan submissions may be publicly visible.'); return; }
+    setUrlBusy(true);
+    try {
+      const submitted = await fetch('/api/safety/check-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:urlInput,publicScanConsent:true})});
+      const start = await submitted.json();
+      if (!submitted.ok) throw new Error(start.error || 'Could not submit this link.');
+      let report:any=null;
+      for(let attempt=0;attempt<18;attempt++){
+        await new Promise(resolve=>setTimeout(resolve,5000));
+        const response=await fetch(start.resultPath,{cache:'no-store'});
+        report=await response.json();
+        if(response.status===200 && !report.pending) break;
+        if(!response.ok && response.status!==202) throw new Error(report.error || 'Could not retrieve scan results.');
+      }
+      if(!report || report.pending) throw new Error('The scan is taking longer than expected. Try again later.');
+      setUrlResult({level:report.level,title:report.verdict,detail:`URLScan report for ${report.page?.url || urlInput}`,signals:[...(report.findings||[]),`Antivirus engines: ${report.stats?.maliciousEngines ?? 0} flagged of ${report.stats?.totalEngines ?? 0}.`,report.caveat],reportUrl:report.reportUrl});
+    } catch(error) { setUrlResult({...local,level:'review',title:'Live scan unavailable',detail:error instanceof Error?error.message:'Could not complete the scan. Local indicators are shown below.'}); }
+    finally { setUrlBusy(false); }
+  }
+  async function submitMessage(event:FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const submitted=messageText.trim();
+    if(!submitted || messageBusy) return;
+    setAiMessageResult(null); setMessageResult(null); setMessageBusy(true);
+    try {
+      const response=await fetch('/api/safety/check-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:submitted})});
+      const data=await response.json();
+      if(!response.ok) throw new Error(data.error || 'Message analysis failed.');
+      setAiMessageResult(data);
+    } catch(error) { notify(error instanceof Error?error.message:'Could not analyse this message. Please try again.'); }
+    finally { setMessageBusy(false); }
+  }
   async function showSecurityTip(article:typeof securityArticles[number], index:number) {
     setArticleIndex(index);
     if (paused) { notify('Reminders are paused. Resume them before creating a notification.'); return; }
@@ -659,9 +699,9 @@ function DeviceProtection() {
     </div>
 
     <section className="mt-6 grid gap-4 lg:grid-cols-2">
-      <article className="panel p-5 sm:p-6"><div className="flex items-start gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary"><Search size={23}/></span><div><p className="eyebrow">On-device · no upload</p><h2 className="display mt-1 text-2xl font-extrabold">Check a suspicious link</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Runs simple URL-format checks in this page. It does not contact a reputation database or inspect downloaded files.</p></div></div>
-        <form className="mt-5 flex flex-col gap-3 sm:flex-row" onSubmit={submitUrl}><label className="sr-only" htmlFor="url-risk-input">Website address to review</label><input id="url-risk-input" className="field min-w-0 flex-1" type="text" inputMode="url" autoComplete="url" placeholder="https://example.com" value={urlInput} onChange={e=>setUrlInput(e.target.value)} maxLength={2048}/><button className="btn btn-primary shrink-0" type="submit"><Search size={16}/> Review link</button></form>
-        {urlResult && <div className={`mt-4 rounded-2xl border p-4 ${urlResult.level==='high'?'border-red-500/40 bg-red-500/5':urlResult.level==='review'?'border-amber-500/40 bg-amber-500/5':'border-emerald-500/40 bg-emerald-500/5'}`} role="status"><div className="flex items-start gap-3"><ShieldAlert className={`mt-0.5 ${urlResult.level==='high'?'text-red-500':urlResult.level==='review'?'text-amber-500':'text-emerald-500'}`} size={21}/><div><b className="text-sm">{urlResult.title}</b><p className="mt-1 text-xs leading-5 text-muted-foreground">{urlResult.detail}</p><ul className="mt-3 list-disc space-y-1 pl-5 text-xs leading-5">{urlResult.signals.map(signal=><li key={signal}>{signal}</li>)}</ul></div></div></div>}
+      <article className="panel p-5 sm:p-6"><div className="flex items-start gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary"><Search size={23}/></span><div><p className="eyebrow">On-device · no upload</p><h2 className="display mt-1 text-2xl font-extrabold">Check a suspicious link</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Submits your link to URLScan.io for a live reputation and page scan. URLScan submissions are publicly visible.</p></div></div>
+        <label className="mt-4 flex items-start gap-2 text-xs leading-5 text-muted-foreground"><input type="checkbox" checked={publicScanConsent} onChange={e=>setPublicScanConsent(e.target.checked)} className="mt-1"/> I understand that URLs submitted to URLScan.io may be publicly visible, including scan details.</label><form className="mt-5 flex flex-col gap-3 sm:flex-row" onSubmit={submitUrl}><label className="sr-only" htmlFor="url-risk-input">Website address to review</label><input id="url-risk-input" className="field min-w-0 flex-1" type="text" inputMode="url" autoComplete="url" placeholder="https://example.com" value={urlInput} onChange={e=>setUrlInput(e.target.value)} maxLength={2048}/><button className="btn btn-primary shrink-0" type="submit" disabled={urlBusy}>{urlBusy?<LoaderCircle className="animate-spin" size={16}/>:<Search size={16}/>} {urlBusy?"Submitting & scanning…":"Scan link"}</button></form>
+        {urlResult && <div className={`mt-4 rounded-2xl border p-4 ${urlResult.level==='high'?'border-red-500/40 bg-red-500/5':urlResult.level==='review'?'border-amber-500/40 bg-amber-500/5':'border-emerald-500/40 bg-emerald-500/5'}`} role="status"><div className="flex items-start gap-3"><ShieldAlert className={`mt-0.5 ${urlResult.level==='high'?'text-red-500':urlResult.level==='review'?'text-amber-500':'text-emerald-500'}`} size={21}/><div><b className="text-sm">{urlResult.title}</b><p className="mt-1 text-xs leading-5 text-muted-foreground">{urlResult.detail}</p><ul className="mt-3 list-disc space-y-1 pl-5 text-xs leading-5">{urlResult.signals.map(signal=><li key={signal}>{signal}</li>)}</ul>{urlResult.reportUrl && <a className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-primary underline" href={urlResult.reportUrl} target="_blank" rel="noreferrer">Open URLScan report <ExternalLink size={12}/></a>}</div></div></div>}
         <button className="mt-4 text-xs font-bold text-primary underline underline-offset-4" onClick={()=>{setUrlInput(window.location.origin);setUrlResult(reviewUrl(window.location.origin));}}>Check current Digital Safety domain</button>
       </article>
       <article className="panel p-5 sm:p-6"><div className="flex items-start gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary"><Trash2 size={23}/></span><div><p className="eyebrow">Origin-only cleanup</p><h2 className="display mt-1 text-2xl font-extrabold">Storage & cache cleaner</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">Estimates this website's origin storage, and clears only its own named browser caches. In a configured Median Android WebView, it can also request the native WebView cache clear.</p></div></div>
@@ -671,7 +711,11 @@ function DeviceProtection() {
       </article>
     </section>
 
-    <section className="mt-6 panel p-5 sm:p-6"><div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><ShieldAlert size={23}/></span><div><p className="eyebrow">Scam Guardian · local preview</p><h2 className="display mt-1 text-2xl font-extrabold">Review a suspicious message</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Paste a suspicious SMS, email, or message. The text is checked in this browser for common pressure tactics, requests for sensitive details, unusual payments, remote-access prompts, and visible URLs. It is not sent to a server, and a result is not proof of fraud or safety.</p></div></div><form className="mt-5 grid gap-3" onSubmit={submitMessage}><label className="sr-only" htmlFor="message-risk-input">Suspicious message text</label><textarea id="message-risk-input" className="field min-h-32 w-full resize-y" rows={5} maxLength={6000} placeholder="Paste message text here. Remove private details first." value={messageText} onChange={e=>setMessageText(e.target.value)} required/><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-muted-foreground">{messageText.length}/6000 characters · local rules only</p><div className="flex flex-wrap gap-2"><button type="button" className="btn btn-quiet !text-xs" onClick={()=>{setMessageText('');setMessageResult(null);}}>Clear text</button><button type="submit" className="btn btn-primary !text-xs"><Search size={15}/> Review message</button></div></div></form>{messageResult && <div className={`mt-4 rounded-2xl border p-4 ${messageResult.level==='high'?'border-red-500/40 bg-red-500/5':messageResult.level==='review'?'border-amber-500/40 bg-amber-500/5':'border-emerald-500/40 bg-emerald-500/5'}`} role="status"><div className="flex items-start gap-3"><ShieldAlert className={`mt-0.5 shrink-0 ${messageResult.level==='high'?'text-red-500':messageResult.level==='review'?'text-amber-500':'text-emerald-500'}`} size={21}/><div className="min-w-0 flex-1"><b className="text-sm">{messageResult.title}</b><ul className="mt-3 list-disc space-y-2 pl-5 text-xs leading-5">{messageResult.signals.map(signal=><li key={signal}>{signal}</li>)}</ul>{messageResult.links.length>0 && <div className="mt-4 border-t border-border pt-3"><p className="text-xs font-bold">URLs found in the message (up to 5)</p><div className="mt-2 grid gap-2">{messageResult.links.map(link=><div key={link.address} className="rounded-lg border border-border p-3"><p className="break-all text-xs font-semibold">{link.address}</p><p className="mt-1 text-xs text-muted-foreground">{link.result.title}: {link.result.detail}</p></div>)}</div></div>}<p className="mt-3 text-xs leading-5 text-muted-foreground">This tool cannot check the sender identity, live site reputation, attached files, or malware. Use an official channel to verify any request for money, codes, or credentials.</p></div></div></div>}</section>
+    <section className="mt-6 panel p-5 sm:p-6"><div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><ShieldAlert size={23}/></span><div><p className="eyebrow">Scam Guardian · DEVZIKKY AI</p><h2 className="display mt-1 text-2xl font-extrabold">Review a suspicious message</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Paste a suspicious SMS, email, or message. DEVZIKKY AI will assess scam and phishing indicators. Your submitted text is sent to the configured AI service for analysis; remove private details first.</p></div></div>
+      <form className="mt-5 grid gap-3" onSubmit={submitMessage}><label className="sr-only" htmlFor="message-risk-input">Suspicious message text</label><textarea id="message-risk-input" className="field min-h-32 w-full resize-y" rows={5} maxLength={6000} placeholder="Paste message text here. Remove private details first." value={messageText} onChange={e=>setMessageText(e.target.value)} required/><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-muted-foreground">{messageText.length}/6000 characters · AI analysis</p><div className="flex flex-wrap gap-2"><button type="button" className="btn btn-quiet !text-xs" onClick={()=>{setMessageText('');setAiMessageResult(null);setMessageResult(null);}}>Clear</button><button type="submit" disabled={messageBusy || !messageText.trim()} className="btn btn-primary !text-xs">{messageBusy?<LoaderCircle className="animate-spin" size={15}/>:<Sparkles size={15}/>} {messageBusy?'Analyzing…':'Analyze message'}</button></div></div></form>
+      {messageBusy && <div className="mt-5 flex items-center gap-3 rounded-2xl border border-border p-4" role="status"><Sparkles size={19} className="text-primary"/><div><b className="text-sm">DEVZIKKY AI is thinking</b><div className="mt-2 flex gap-1"><span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:-.2s]"/><span className="h-2 w-2 animate-bounce rounded-full bg-primary [animation-delay:-.1s]"/><span className="h-2 w-2 animate-bounce rounded-full bg-primary"/></div></div></div>}
+      {aiMessageResult && <div className="mt-5 flex justify-start"><article className="w-full max-w-3xl rounded-2xl border border-border bg-card p-4 sm:p-5" role="status"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Sparkles size={17} className="text-primary"/><b className="text-sm">DEVZIKKY AI</b></div><button type="button" className="btn btn-quiet !min-h-9 !text-xs" onClick={()=>{void navigator.clipboard?.writeText(aiMessageResult.reply);notify('AI response copied.');}}><Copy size={14}/> Copy response</button></div>{aiMessageResult.score !== null && <div className="mt-4"><div className="flex items-baseline gap-2"><strong className="display text-3xl font-extrabold">{aiMessageResult.score}%</strong><span className="text-xs font-bold text-muted-foreground">{aiMessageResult.scoreLabel}</span></div><p className="mt-1 text-[11px] text-muted-foreground">AI-estimated safety indicator, not a guarantee.</p></div>}<p className="mt-4 whitespace-pre-wrap text-sm leading-7">{aiMessageResult.reply}</p></article></div>}
+    </section>
 
     <section className="mt-6 panel p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="eyebrow">Permissions centre</p><h2 className="display mt-1 text-2xl font-extrabold">Your device, your choice.</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">No permission is requested when this page opens. Enable something only after reviewing why it is needed. Contacts, call logs, microphone, Wi-Fi and VPN permissions are intentionally not requested.</p></div><button className="btn btn-quiet !text-xs" onClick={()=>setShowPermissionDetails(!showPermissionDetails)}><CircleHelp size={15}/>{showPermissionDetails?'Hide permission details':'Why these permissions?'}</button></div>
       {showPermissionDetails && <div className="mt-4 rounded-xl bg-secondary/60 p-4 text-sm leading-6"><b>Notifications</b> may display optional safety tips. Browser notifications need explicit consent; persistent push in the Median APK additionally needs the OneSignal/FCM setup. <b className="ml-1">Location</b> is optional and not needed to scan links or apps. The page does not save or transmit coordinates. It is included only as an explicitly initiated permission test, not as a scan requirement.</div>}
